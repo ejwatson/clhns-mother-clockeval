@@ -1,0 +1,261 @@
+---
+title: "A longitudinal validation of epigenetic clocks among middle-aged Filipino women"
+lang: en-GB
+format:
+  docx:
+    reference-doc: ije-reference.docx
+    fig-dpi: 300
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+
+library(tidyverse)
+if (!file.exists("output/analysis.RData")) source("06-models.R")
+load("output/analysis.RData")
+
+wc <- if (file.exists("output/wordcount.csv")) read.csv("output/wordcount.csv") else
+  data.frame(abstract = "TBC", main = "TBC")
+
+fmt_p <- function(p) ifelse(p < 0.001, "P<0.001", sprintf("P=%.3f", p))
+# "est unit (95% CI lo, hi; P=...)" for one row of a results frame
+#  inner = TRUE gives "est unit; 95% CI lo, hi; P" (for use inside existing parentheses); ci_lab = "" drops the "95% CI" label
+Rp <- function(res, exposure, outcome, dg = NULL, unit = "", p = TRUE, inner = FALSE, ci_lab = "95% CI ") {
+  r <- res[res$exposure == exposure & res$outcome == outcome, ]
+  if (is.null(dg)) dg <- r$digits
+  core <- paste0(ci_lab, sprintf("%.*f, %.*f", dg, r$lo, dg, r$hi), if (p) paste0("; ", fmt_p(r$p)) else "")
+  gsub("-", "\u2212", paste0(sprintf("%.*f", dg, r$est), unit, if (inner) paste0("; ", core) else paste0(" (", core, ")")), fixed = TRUE)   # true minus sign avoids line breaks after "-"
+}
+# range of estimates across the five clocks for a figure item
+rng_est <- function(df, item, adj = "base", dg = 2) {
+  r <- df[df$item == item & df$adj == adj_lab[[adj]], ]
+  gsub("-", "\u2212", sprintf("%.*f to %.*f", dg, min(r$est), dg, max(r$est)), fixed = TRUE)
+}
+pct_sample <- sprintf("%.0f", 100 * n_analytic / n_dnam)
+```
+
+Running head: Epigenetic clocks in Filipino women
+
+**Elijah Watson**^1,2,\*^, **Thomas McDade**^3,4^, **Calen P. Ryan**^5^, **Nanette Lee**^6^, **Delia Carba**^6^, **Julia MacIsaac**^7,8,9^, **Kristy Dever**^7,8,9^, **Michael Kobor**^7,8,9^, **Linda Adair**^10,11^, **Christopher Kuzawa**^12^
+
+::: {custom-style="Compact"}
+^1^ Department of Sociology, University of Chicago\
+^2^ Center for Health and the Social Sciences, University of Chicago\
+^3^ Department of Anthropology, Northwestern University\
+^4^ Institute for Policy Research, Northwestern University\
+^5^ Robert N. Butler Columbia Aging Center Geroscience Computational Core, Mailman School of Public Health, Columbia University Medical Center\
+^6^ USC-Office of Population Studies Foundation, University of San Carlos, Cebu City, Philippines\
+^7^ Edwin S.H. Leong Centre for Healthy Aging, Faculty of Medicine, University of British Columbia, Vancouver, British Columbia, Canada\
+^8^ BC Children's Hospital Research Institute, University of British Columbia, Vancouver, British Columbia, Canada\
+^9^ Centre for Molecular Medicine and Therapeutics, University of British Columbia, Vancouver, Canada\
+^10^ Department of Nutrition, Gillings School of Global Public Health, University of North Carolina at Chapel Hill\
+^11^ Carolina Population Center, University of North Carolina at Chapel Hill\
+^12^ Department of Human Evolutionary Biology, Harvard University
+
+\*Corresponding author: Elijah Watson, Department of Sociology, University of Chicago, 1126 East 59th Street, Chicago, IL 60637, USA. Email: ejwatson@uchicago.edu
+
+Word count: abstract `r wc$abstract`; main text `r wc$main` (excluding abstract, key messages, declarations, references, tables, figures and supplementary material).
+
+Number of tables and figures: one table and three figures (plus supplementary material).
+:::
+
+{{< pagebreak >}}
+
+# Abstract
+
+**Background:** Epigenetic clocks estimate biological ageing from DNA methylation, but evidence on how well they predict ageing outcomes outside high-income Western settings is limited.
+
+**Methods:** In this analysis of the Cebu Longitudinal Health and Nutrition Survey (Philippines), a prospective cohort study, we studied `r n_analytic` women (mean age `r sprintf("%.1f", mean(d$age05, na.rm = TRUE))` years in 2005) with DNA methylation measured in 2005 and outcomes measured in 2012. We related five clocks (PCHorvath, PCHannum, PCPhenoAge, PCGrimAge and DunedinPACE) to cognition, mobility, grip strength, difficulty with instrumental activities of daily living, cardiometabolic biomarkers and multimorbidity seven years later.
+
+**Results:** Current smoking was associated with higher PCGrimAge (`r Rp(res_xs, "smoke", "z_pcgrimage", unit = " standard deviations (SD)", p = FALSE, inner = TRUE, ci_lab = "95% confidence interval ")`). Per one-SD higher PCGrimAge, cognition differed by `r Rp(res_fig, "z_pcgrimage", "mmse_z", unit = " SD", p = FALSE, ci_lab = "")` and the risk of difficulty with instrumental activities of daily living was higher by `r Rp(res_main, "z_pcgrimage", "iadl", 3, p = FALSE, ci_lab = "")`. Per one-SD higher DunedinPACE, glycated haemoglobin (HbA1c) was higher by `r Rp(res_fig, "z_dunedinpace", "hba1c_z", unit = " SD", p = FALSE, ci_lab = "")` and the risk of at least three conditions by `r Rp(res_main, "z_dunedinpace", "mm_ge3", 3, p = FALSE, ci_lab = "")`. Higher own education was associated with lower values of all five clocks, and higher household wealth with lower PCHannum, PCPhenoAge and PCGrimAge.
+
+**Conclusions:** Widely used epigenetic clocks show predictive validity in this non-Western cohort, supporting their use in lower- and middle-income settings.
+
+**Keywords:** DNA methylation, biological ageing, epigenetic clocks, Philippines, biomarkers, validation
+
+# Key messages
+
+- We asked whether five widely used epigenetic clocks, developed mainly in high-income Western populations, predict ageing outcomes in middle-aged Filipino women.
+- Clocks measured in 2005 predicted cognition, mobility, functional limitation, cardiometabolic biomarkers and multimorbidity seven years later, most consistently for PCGrimAge and DunedinPACE.
+- These findings support the use of epigenetic clocks in a non-Western cohort and provide a basis for studying the determinants of biological ageing in lower- and middle-income countries.
+
+# Introduction
+
+Epigenetic alterations are one of the 'hallmarks of ageing' and have been used to develop tools for measuring and quantifying the process of biological ageing.(1) Among the most influential developments are 'epigenetic clocks', tools that aim to estimate biological age using chronological age or other age-related phenotypes based on predictable changes in DNA methylation (DNAm).(2) While initially trained to predict chronological age, epigenetic clocks have since been extended to better predict biological age metrics such as age-related physiological, disease and mortality risk profiles.(3–6) Pace-of-ageing clocks instead estimate the rate of decline across physiological systems.(7)
+
+Epigenetic clocks are typically trained using machine-learning algorithms on large DNAm datasets to identify CpG sites where methylation levels are predictive of a target variable thought to reflect underlying biological age, such as chronological age, clinical biomarkers, or longitudinal changes in an ageing-related phenotype or outcome.(8) The resulting algorithms are applied to new datasets to estimate an individual's epigenetic age, which is then usually compared with their actual chronological age. The deviation between predicted epigenetic age and chronological age yields a residual known as epigenetic age acceleration (EAA). Importantly, the generalisability of an EAA measure depends on whether it consistently predicts meaningful outcomes, such as functional decline, morbidity and mortality, within and across diverse populations.(9) Evaluating predictive validity across contexts is therefore critical for establishing epigenetic clocks as generalisable biomarkers of ageing.(9–11)
+
+In the USA, analyses from the Health and Retirement Study (HRS) have shown that epigenetic age acceleration derived from second-generation and pace-of-ageing clocks predicts cognitive dysfunction, functional limitations, chronic conditions and four-year mortality, even after adjusting for demographic, socioeconomic and behavioural factors.(12) Comparisons of nine epigenetic clocks within the same cohort further indicate that newer generations, those developed in relation to age-related physiological changes, morbidity and mortality risk rather than chronological age alone, were more consistently associated with socioeconomic status (SES) and health behaviours in expected directions.(13)
+
+In addition to within-country studies, cross-national meta-analyses have provided further evidence for the validity and generalisability of epigenetic clocks across Western contexts. Across cohorts in several Western countries, epigenetic age acceleration has been shown to predict all-cause mortality independent of chronological age and conventional risk factors.(14) Consistent socioeconomic gradients in epigenetic ageing have also been observed across 18 cohorts in Europe, the USA and Australia.(15) Associations between epigenetic age acceleration and health behaviours, including smoking, alcohol use and body mass index (BMI), are likewise consistent across nationally representative surveys in the USA, Ireland and Northern Ireland. These findings collectively suggest that epigenetic clocks are broadly responsive to social and behavioural exposures and are valid predictors of ageing-related outcomes in Western populations.(16)
+
+However, most epigenetic clocks were developed using data from Western countries such as the USA, raising concerns about how well they apply to populations in lower- and middle-income countries (LMICs), which remain under-represented in biological ageing research.(9,11) Like any machine-learning algorithm, the predictive validity of epigenetic age acceleration estimates may decline when applied in contexts that differ from their training data, a challenge known as distributional or dataset shift.(17) A recent analysis by Yusipov et al. examined mean values of epigenetic age acceleration across 25 countries and 31 ethnicities using over 23 000 publicly available DNAm samples.(18) These descriptive comparisons do not address whether epigenetic ageing measures perform similarly in predicting health outcomes across diverse global socioecological settings. To demonstrate validity outside high-income Western settings, more work showing the association between epigenetic clocks and key outcomes thought to reflect biological ageing is needed.
+
+The Cebu Longitudinal Health and Nutrition Survey (CLHNS) provides a unique opportunity to evaluate the performance of epigenetic clocks in a non-Western setting.(19,20) The CLHNS began in 1983–84 as a population-based pregnancy and birth cohort in metropolitan Cebu, Philippines, following 3080 mothers and their children through repeated health, nutrition, socioeconomic and biomarker assessments. In this study, we evaluate five widely used epigenetic clocks among the mothers of the original cohort, now in midlife, focusing on longitudinal associations with functional ageing, biomarker and multimorbidity outcomes measured seven years later, as well as health and social exposures previously linked to epigenetic ageing in other settings. Our aims are twofold: first, to assess the predictive and construct validity of these clocks in a non-Western setting; and second, to describe patterns that can inform future hypothesis-driven research on the determinants of epigenetic ageing in the CLHNS.
+
+# Methods
+
+This study followed the Strengthening the Reporting of Observational Studies in Epidemiology (STROBE) guideline.(21)
+
+## Study population
+
+The CLHNS enrolled 3080 pregnant women in 1983–84.(19,20) In 2005, the women completed in-home visits with questionnaires, anthropometry and fasting blood draws; DNAm was profiled in a subset of women. In 2012, they completed a survey focused on ageing that included functional, cognitive and biomarker assessments.(22) Of the 3080 women, `r n_clocks` had DNAm data for all five clocks, `r n_dnam` of whom also had genetic ancestry principal component 1 (PC1), and `r n_analytic` also had complete data on all 10 outcomes in 2012 (the analytic sample). Characteristics of included and excluded women are in Supplementary Table S9.
+
+## Epigenetic clocks
+
+Genomic DNA from white blood cells was treated with sodium bisulfite (EZ DNA Methylation kit, Zymo Research), and converted DNA was applied to the Infinium MethylationEPIC v1.0 array following the manufacturer's standard protocol (Illumina Inc., San Diego, CA, USA). Samples were randomised across arrays, and technical replicates were included to confirm consistent results. Preprocessing and normalisation of DNAm data were conducted in R using the minfi(23,24) and ewastools(25) packages. Samples passed quality control if they met the following criteria: methylated or unmethylated signal intensity >10 and both average detection *P* values <0.05 and <5% of probes with fewer than 5 beads; bisulfite conversion efficiency >80%; no evidence of clustering based on SNP-based probes; and an additional 17 control metrics described by Illumina.(25) Data were noob (normal-exponential out-of-band) normalised using minfi prior to subsequent analysis.(23,24,26) We examined five clocks applied as published, without re-training or recalibration: two first-generation clocks (PCHorvath and PCHannum), two second-generation clocks (PCPhenoAge and PCGrimAge) and a pace-of-ageing measure (DunedinPACE).(3–7) The first- and second-generation clocks are principal-component versions, which improve technical reliability.(27) PCHorvath, PCHannum, PCPhenoAge and PCGrimAge were each regressed on chronological age in 2005 (age at the DNAm sample), and the residuals (epigenetic age acceleration) were standardised (z-scored; one standard deviation, SD, units) in the analytic sample. DunedinPACE, which estimates the pace rather than the level of ageing, was standardised without residualisation. All models also adjust for age.
+
+## Outcomes in 2012
+
+Cognition was measured with a version of the Mini-Mental State Examination adapted for the Philippines (MMSE-P).(28) Mobility was measured with the Timed Up and Go test (mean of three trials; higher values indicate slower mobility).(29,30) Grip strength was the mean of three trials with the dominant hand (both hands if ambidextrous). Difficulty with at least one instrumental activity of daily living (IADL) was self-reported.(31) Systolic blood pressure and HbA1c (glycated haemoglobin) were averaged over three measurements. C-reactive protein (CRP) values above 10 mg/L, which may indicate infection, were set to missing (`r sum(mom_analysis_data$has_dnam == 1 & mom_analysis_data$crp > 10, na.rm = TRUE)` women with DNAm data) and CRP was log-transformed; these women were excluded from the analytic sample because they had missing CRP. Multimorbidity was the number of self-reported conditions (diabetes, heart disease, hypertension, cancer, anaemia, arthritis), analysed as at least one, two and three conditions. For Figure 1, continuous outcomes were z-scored; estimates in original units are in Supplementary Tables S2–S6.
+
+## Other variables
+
+Concurrent risk factors in 2005 were BMI (kg/m², standardised), current smoking and current alcohol use (self-reported).(16) Life-course SES comprised the participant's mother's schooling (early life), own schooling (young adulthood) and a household asset index in 2005 (midlife), each standardised.(15) The asset index is the first component of a polychoric principal component analysis of household assets and housing characteristics, harmonised across survey waves.(32) White blood cell proportions (CD8+ and CD4+ T cells, natural killer cells, B cells, monocytes and granulocytes) were estimated by reference-based deconvolution (Houseman method with the Reinius reference data set);(33–35) because the six proportions sum to one, we adjusted for five of them (granulocytes as reference).
+
+## Selection and attrition weights
+
+Only a subset of women had DNAm measured, and not all had complete 2012 data. To address both sources of selection we constructed stabilised inverse probability of censoring weights using covariate balancing propensity scores,(36) estimated with the WeightIt package in R(37) at two sequential time points.(38) At the first, a woman was censored if she lacked DNAm data or PC1, modelled with 1983 household wealth, maternal age, schooling and urbanicity. At the second, among women with DNAm data and PC1, a woman was censored if she was missing any 2012 outcome, modelled with 2005 household wealth, urbanicity, income, BMI, systolic blood pressure and the five clocks. A woman's weight is the product of the two stages; weights were not trimmed. In the analytic sample the weights had mean `r sprintf("%.2f", wd$mean)` (range `r sprintf("%.2f", wd$min)`–`r sprintf("%.2f", wd$max)`; effective sample size `r round(wd$ESS)`; Supplementary Table S8).
+
+## Statistical analysis
+
+We correlated each clock with chronological age, and age-acceleration residuals (residuals of each age-scale clock regressed on age, with DunedinPACE unresidualised) with each other. All regressions were weighted and used standard errors clustered on participant to account for weighting. Models of 2012 outcomes adjusted for chronological age in 2012; models with a clock as the outcome (risk factors, SES) adjusted for chronological age in 2005. Cross-sectional models regressed each clock on each risk factor (and on each SES measure), separately. Longitudinal models regressed each 2012 outcome on each clock, separately; continuous outcomes used linear regression, and binary outcomes (IADL difficulty; at least one, two and three conditions) used logistic regression with g-computation (standardisation) to estimate marginal risk differences per one-SD higher epigenetic age.(39) Estimates are given with 95% confidence intervals (CIs). Risk differences are on the absolute scale (0.02=2 percentage points). Following recommendations for validating biomarkers of ageing,(9) we also report estimates per one-year higher age acceleration (per 0.1 for DunedinPACE; Supplementary Table S7). Models were estimated cumulatively: (1) age; (2) plus PC1; (3) plus estimated white blood cell proportions. Model 1 is the primary result. Analyses used R `r paste(R.version$major, R.version$minor, sep = ".")`. Code was written with assistance from Claude and reviewed by the corresponding author.
+
+# Results
+
+## Participants
+
+The analytic sample comprised `r n_analytic` women (`r pct_sample`% of the `r n_dnam` with DNAm data and PC1; Table 1). In 2005 their mean age was `r ms(d$age05, 1)` years (SD `r sdv(d$age05, 1)`) and mean BMI was `r ms(d$mbmi05, 1)` kg/m² (SD `r sdv(d$mbmi05, 1)`); `r pc(d$smoke)` smoked and `r pc(d$drink)` drank alcohol. In 2012, `r pc(d$iadl)` reported difficulty with at least one IADL and `r pc(d$multimorb_count >= 2, 0)` reported two or more conditions. Included women are compared with excluded women in Supplementary Table S9.
+
+## Clocks, chronological age and concurrent risk factors
+
+Four clocks were correlated with chronological age (r=`r sprintf("%.2f", min(cor_age))`–`r sprintf("%.2f", max(cor_age))`; Supplementary Table S1), and age-acceleration residuals from the first-generation clocks were strongly correlated (r=`r sprintf("%.2f", resid_cor["PCHorvath", "PCHannum"])`; Supplementary Figure S1). Current smoking was associated with higher PCGrimAge (`r Rp(res_xs, "smoke", "z_pcgrimage", unit = " SD", inner = TRUE)`) and, more weakly, higher DunedinPACE (`r Rp(res_xs, "smoke", "z_dunedinpace", unit = " SD", inner = TRUE)`); one-SD higher BMI was associated with higher DunedinPACE (`r Rp(res_xs, "bmi_z", "z_dunedinpace", unit = " SD", inner = TRUE)`). Other associations were small (Supplementary Tables S2–S6).
+
+## Continuous outcomes
+
+Higher epigenetic age acceleration in 2005 was generally associated with poorer cognition and slower mobility in 2012 (Figure 1; Supplementary Tables S2–S6). Per one-SD higher age acceleration, standardised cognition differed by `r rng_est(df_fig1, "mmse_z")` SD across the five clocks, most for PCPhenoAge, PCHannum and PCGrimAge (PCGrimAge `r Rp(res_fig, "z_pcgrimage", "mmse_z", unit = " SD", inner = TRUE)`), and standardised Timed Up and Go time (higher is slower) by `r rng_est(df_fig1, "tug_z")` SD. Associations with grip strength were small (`r rng_est(df_fig1, "grip_z")` SD); the confidence interval excluded zero only for PCPhenoAge, although estimates for the first-generation clocks strengthened after adjustment for cell composition. DunedinPACE showed the clearest associations with biomarkers: HbA1c `r Rp(res_fig, "z_dunedinpace", "hba1c_z", unit = " SD")`, systolic blood pressure `r Rp(res_fig, "z_dunedinpace", "sbp_z", unit = " SD")` and log CRP `r Rp(res_fig, "z_dunedinpace", "logcrp_z", unit = " SD")`. PCPhenoAge and PCGrimAge were also associated with log CRP (`r Rp(res_fig, "z_pcphenoage", "logcrp_z", unit = " SD", inner = TRUE)` and `r Rp(res_fig, "z_pcgrimage", "logcrp_z", unit = " SD", inner = TRUE)`), whereas the first-generation clocks were not associated with HbA1c or log CRP; systolic blood pressure showed similar associations for all clocks except PCGrimAge.
+
+## Binary outcomes
+
+Per one-SD higher age acceleration, the risk of difficulty with at least one IADL was higher by `r Rp(res_main, "z_pcgrimage", "iadl", 3)` for PCGrimAge and `r Rp(res_main, "z_dunedinpace", "iadl", 3)` for DunedinPACE (Figure 2; Supplementary Tables S2–S6). The risk of at least three conditions was higher by `r Rp(res_main, "z_pcgrimage", "mm_ge3", 3)` for PCGrimAge and `r Rp(res_main, "z_dunedinpace", "mm_ge3", 3)` for DunedinPACE, and the risk of at least two conditions by `r Rp(res_main, "z_dunedinpace", "mm_ge2", 3)` for DunedinPACE (Supplementary Tables S2–S6). Associations with at least one condition were close to null for all clocks.
+
+## Socioeconomic status
+
+Higher own education was associated with lower values of all five clocks (Figure 3; Supplementary Tables S2–S6), most strongly for PCHannum and PCPhenoAge. Higher household wealth was associated with lower PCHannum, PCPhenoAge and PCGrimAge (for example, one-SD higher wealth and PCPhenoAge: `r Rp(res_ses, "wealth_z", "z_pcphenoage", unit = " SD", inner = TRUE)`), with weaker associations for PCHorvath and DunedinPACE. Associations with mother's education were smaller.
+
+## Sensitivity to adjustment for genetic ancestry and cell composition
+
+Adding PC1 changed estimates very little (Figures 1–3). Further adjustment for white blood cell proportions changed estimates modestly, most often moving associations with Timed Up and Go and multimorbidity further from the null (for example, PCGrimAge and cognition: `r Ea(df_fig1, "pcgrimage", "mmse_z", "pc1")` after adjustment for PC1, and `r Ea(df_fig1, "pcgrimage", "mmse_z", "cellpc1")` after adding cell proportions); estimates for DunedinPACE were largely unchanged. Associations of smoking with the first-generation and PCPhenoAge clocks emerged after adjustment for cell composition (Supplementary Tables S2–S6), whereas associations between SES and epigenetic age were attenuated for all clocks except PCGrimAge (for example, wealth and PCHannum: `r Ea(df_fig3, "pchannum", "wealth_z", "pc1")` before and `r Ea(df_fig3, "pchannum", "wealth_z", "cellpc1")` after).
+
+# Discussion
+
+This study provides an evaluation of the predictive validity of several widely used epigenetic clocks in a cohort of middle-aged women in the Philippines, using data from the CLHNS. Our analyses assessed how these clocks correlate with chronological age, concurrent health risk factors, SES and, most importantly, functional, physiological and multimorbidity outcomes measured seven years later.
+
+Epigenetic age acceleration was associated with concurrent smoking (PCGrimAge and DunedinPACE), correlated with life course SES in expected directions, and predicted multiple biological and clinical markers of ageing seven years later, including cognitive and physical functioning, cardiometabolic biomarkers and multimorbidity, although associations with grip strength were weak. Notably, no clock emerged as clearly most or least informative in all domains. PCGrimAge and DunedinPACE gave the most consistent signals, in line with Western cohorts,(12,13,16) but PCHannum performed comparably for cognition. Using multiple epigenetic clocks may therefore offer complementary insights into biological ageing within and across contexts.
+
+While second-generation clocks (PCGrimAge, PCPhenoAge) and DunedinPACE are often favoured for their enhanced predictive performance and incorporation of ageing-related phenotypes, the first-generation PCHannum performed comparably for cognition and, like PCPhenoAge, was sensitive to education and wealth. Higher education was associated with lower values of all five clocks and higher wealth with lower values of PCHannum, PCPhenoAge and PCGrimAge, and these associations were attenuated after adjustment for cell composition for all but PCGrimAge. This is consistent with SES differences in immune cell composition in this cohort,(40) and suggests that part of the social patterning of some clocks may operate through, or be confounded by, cell composition. An important limitation is that we have not yet assessed how these clocks predict mortality in the CLHNS. Mortality follow-up in this cohort will provide a critical test of these clocks.
+
+This study also builds on prior CLHNS research on the adult children of these women, in whom early-life exposures, including birth weight, maternal nutritional status during pregnancy and infectious disease burden in infancy, predicted epigenetic age acceleration and telomere length at age 21,(41,42) and greater reproductive effort was associated with accelerated epigenetic ageing among young women, supporting life-history trade-offs between reproduction and somatic maintenance.(43,44) By evaluating the same biomarkers in the mothers, linked to ageing outcomes measured in 2012, our study extends this work across generations and life stages.
+
+Our study has further limitations. It is a single cohort of women with a narrow age range (mean age `r ms(d$age05, 0)` years), so we could not examine variation by sex or age, and results may not generalise to men, older adults or other LMIC settings. Follow-up of seven years is shorter than the 10 years or more recommended for validation.(9) Several outcomes (IADL difficulty, morbidity) were self-reported. Models adjust only for age (and, in sensitivity analyses, PC1 and estimated cell composition), so residual confounding is likely, and we did not correct for multiple comparisons; we therefore emphasise estimates and confidence intervals over individual *P* values. Inverse probability weights address selection and attrition only to the extent that these are explained by the measured covariates, and uncertainty in estimating the weights was not propagated. Only `r pct_sample`% of women with DNAm and PC1 contributed, because of the requirement for complete outcome data. Finally, cell proportions were estimated rather than measured.
+
+More broadly, this work lays an empirical foundation for future research on biological ageing in the Philippines and similar settings. With this descriptive evaluation of predictive validity established, we can now turn to theoretically informed, hypothesis-driven and confounder-adjusted analyses within the CLHNS of how social, environmental, life course and intergenerational processes shape biological ageing and its consequences over the life course.(20,45,46) Epigenetic clocks appear to generalise reasonably well across geographic contexts, but continued validation in LMICs, with longer follow-up, mortality and standardised reporting of effect sizes, is essential to ensure that their application does not obscure population-specific differences in exposure histories or biological ageing trajectories.(11)
+
+# Ethics approval
+
+All data were collected under conditions of informed consent with institutional review board approval from the University of North Carolina at Chapel Hill and Northwestern University. The study was conducted in accordance with the principles of the Declaration of Helsinki.
+
+# Acknowledgements
+
+We thank the CLHNS participants who have generously contributed their time.
+
+# Author contributions
+
+E.W. designed the study, implemented the data analyses and edited the manuscript. T.W.M. designed the study and edited the manuscript. C.P.R. designed the study and edited the manuscript. L.S.A. designed the study, edited the manuscript and provided funding for the project. N.R.L. designed the study and contributed to data collection. D.B.C. designed the study and contributed to data collection. J.L.M. contributed to data collection and implemented data analysis. K.D. contributed to data collection and implemented data analysis. M.S.K. designed the study and edited the manuscript. C.W.K. designed the study, edited the manuscript and provided funding for the project. E.W. is the guarantor of the paper.
+
+# Supplementary data
+
+Supplementary data are available at *IJE* online.
+
+# Conflict of interest
+
+None declared.
+
+# Funding
+
+This work was supported by the National Institute on Aging of the National Institutes of Health [grant numbers R01 AG061006, F31 AG084273].
+
+# Data availability
+
+The data that support the findings of this study are available on request from the corresponding author. The data are not publicly available due to privacy or ethical restrictions. The analysis code is available at https://github.com/ejwatson/clhns-mother-clockeval.
+
+# Use of artificial intelligence tools
+
+During preparation of this work the authors used Claude (Anthropic) to assist with writing and debugging the analysis code, formatting the manuscript to journal requirements, and editing text for clarity. The corresponding author reviewed and verified all code, output and text and take full responsibility for the content.
+
+# References
+
+1. López-Otín C, Blasco MA, Partridge L, Serrano M, Kroemer G. The hallmarks of aging. *Cell*. 2013;153(6):1194-1217. doi:10.1016/j.cell.2013.05.039.
+2. Horvath S, Raj K. DNA methylation-based biomarkers and the epigenetic clock theory of ageing. *Nat Rev Genet*. 2018;19(6):371-384. doi:10.1038/s41576-018-0004-3.
+3. Hannum G, Guinney J, Zhao L, et al. Genome-wide methylation profiles reveal quantitative views of human aging rates. *Mol Cell*. 2013;49(2):359-367. doi:10.1016/j.molcel.2012.10.016.
+4. Horvath S. DNA methylation age of human tissues and cell types. *Genome Biol*. 2013;14(10):3156. doi:10.1186/gb-2013-14-10-r115.
+5. Levine ME, Lu AT, Quach A, et al. An epigenetic biomarker of aging for lifespan and healthspan. *Aging (Albany NY)*. 2018;10(4):573-591. doi:10.18632/aging.101414.
+6. Lu AT, Quach A, Wilson JG, et al. DNA methylation GrimAge strongly predicts lifespan and healthspan. *Aging (Albany NY)*. 2019;11(2):303-327. doi:10.18632/aging.101684.
+7. Belsky DW, Caspi A, Corcoran DL, et al. DunedinPACE, a DNA methylation biomarker of the pace of aging. *eLife*. 2022;11:e73420. doi:10.7554/eLife.73420.
+8. Kusters CDJ, Horvath S. Quantification of epigenetic aging in public health. *Annu Rev Public Health*. 2025. doi:10.1146/annurev-publhealth-060222-015657.
+9. Moqri M, Herzog C, Poganik JR, et al. Validation of biomarkers of aging. *Nat Med*. 2024;30:360-372. doi:10.1038/s41591-023-02784-9.
+10. Perri G, French C, Agostinis-Sobrinho C, et al. An expert consensus statement on biomarkers of aging for use in intervention studies. *J Gerontol A Biol Sci Med Sci*. 2025;80(5):glae297. doi:10.1093/gerona/glae297.
+11. Watkins SH, Testa C, Chen JT, et al. Epigenetic clocks and research implications of the lack of data on whom they have been developed: a review of reported and missing sociodemographic characteristics. *Environ Epigenet*. 2023;9(1):dvad005. doi:10.1093/eep/dvad005.
+12. Faul JD, Kim JK, Levine ME, Thyagarajan B, Weir DR, Crimmins EM. Epigenetic-based age acceleration in a representative sample of older Americans: associations with aging-related morbidity and mortality. *Proc Natl Acad Sci U S A*. 2023;120(9):e2215840120. doi:10.1073/pnas.2215840120.
+13. Crimmins EM, Klopack ET, Kim JK. Generations of epigenetic clocks and their links to socioeconomic status in the Health and Retirement Study. *Epigenomics*. 2024. doi:10.1080/17501911.2024.2373682.
+14. Chen BH, Marioni RE, Colicino E, et al. DNA methylation-based measures of biological age: meta-analysis predicting time to death. *Aging (Albany NY)*. 2016;8(9):1844-1859. doi:10.18632/aging.101020.
+15. Fiorito G, McCrory C, Robinson O, et al. Socioeconomic position, lifestyle habits and biomarkers of epigenetic aging: a multi-cohort analysis. *Aging (Albany NY)*. 2019;11(7):2045-2070. doi:10.18632/aging.101900.
+16. Klopack ET, Hernandez B, Potter C, et al. Remarkable concordance in associations between epigenetic clocks and health behaviors across three countries. *Soc Sci Med*. 2025;381:118287. doi:10.1016/j.socscimed.2025.118287.
+17. Lea AS, Jones DS. Mind the gap — machine learning, dataset shift, and history in the age of clinical algorithms. *N Engl J Med*. 2024. doi:10.1056/NEJMp2311015.
+18. Yusipov I, Kalyakulina A, Trukhanov A, Franceschi C, Ivanchenko M. Map of epigenetic age acceleration: a worldwide analysis. *Ageing Res Rev*. 2024;100:102418. doi:10.1016/j.arr.2024.102418.
+19. Adair LS, Popkin BM, Akin JS, et al. Cohort profile: the Cebu Longitudinal Health and Nutrition Survey. *Int J Epidemiol*. 2011;40(3):619-625. doi:10.1093/ije/dyq085.
+20. Kuzawa CW, Adair L, Bechayda SA, et al. Evolutionary life history theory as an organising framework for cohort studies: insights from the Cebu Longitudinal Health and Nutrition Survey. *Ann Hum Biol*. 2020;47(2):94-105. doi:10.1080/03014460.2020.1742787.
+21. von Elm E, Altman DG, Egger M, Pocock SJ, Gøtzsche PC, Vandenbroucke JP. The Strengthening the Reporting of Observational Studies in Epidemiology (STROBE) statement: guidelines for reporting observational studies. *Lancet*. 2007;370(9596):1453-1457. doi:10.1016/S0140-6736(07)61602-X.
+22. Tzioumis E, Avila J, Adair LS. Determinants of successful aging in a cohort of Filipino women. *Geriatrics (Basel)*. 2019;4(1):12. doi:10.3390/geriatrics4010012.
+23. Aryee MJ, Jaffe AE, Corrada-Bravo H, et al. Minfi: a flexible and comprehensive Bioconductor package for the analysis of Infinium DNA methylation microarrays. *Bioinformatics*. 2014;30(10):1363-1369. doi:10.1093/bioinformatics/btu049.
+24. Fortin JP, Triche TJ Jr, Hansen KD. Preprocessing, normalization and integration of the Illumina HumanMethylationEPIC array with minfi. *Bioinformatics*. 2017;33(4):558-560. doi:10.1093/bioinformatics/btw691.
+25. Heiss JA, Just AC. Identifying mislabeled and contaminated DNA methylation microarray data: an extended quality control toolset with examples from GEO. *Clin Epigenetics*. 2018;10(1):73. doi:10.1186/s13148-018-0504-0.
+26. Triche TJ Jr, Weisenberger DJ, Van Den Berg D, Laird PW, Siegmund KD. Low-level processing of Illumina Infinium DNA Methylation BeadArrays. *Nucleic Acids Res*. 2013;41(7):e90. doi:10.1093/nar/gkt090.
+27. Higgins-Chen AT, Thrush KL, Wang Y, et al. A computational solution for bolstering reliability of epigenetic clocks: implications for clinical trials and longitudinal tracking. *Nat Aging*. 2022;2(7):644-661. doi:10.1038/s43587-022-00248-2.
+28. Folstein MF, Folstein SE, McHugh PR. 'Mini-mental state': a practical method for grading the cognitive state of patients for the clinician. *J Psychiatr Res*. 1975;12(3):189-198. doi:10.1016/0022-3956(75)90026-6.
+29. Bohannon RW. Reference values for the timed up and go test: a descriptive meta-analysis. *J Geriatr Phys Ther*. 2006;29(2):64.
+30. Kear BM, Guck TP, McGaha AL. Timed up and go (TUG) test: normative reference values for ages 20 to 59 years and relationships with physical and mental health risk factors. *J Prim Care Community Health*. 2017;8(1):9-13. doi:10.1177/2150131916659282.
+31. Lawton MP, Brody EM. Assessment of older people: self-maintaining and instrumental activities of daily living. *Gerontologist*. 1969;9(3 Pt 1):179-186. doi:10.1093/geront/9.3_Part_1.179.
+32. Varghese JS, Adair LS, Patel SA, et al. Changes in asset-based wealth across the life course in birth cohorts from five low- and middle-income countries. *SSM Popul Health*. 2021;16:100976. doi:10.1016/j.ssmph.2021.100976.
+33. Zhang Z, Reynolds SR, Stolrow HG, Chen J, Christensen BC, Salas LA. Deciphering the role of immune cell composition in epigenetic age acceleration: insights from cell-type deconvolution applied to human blood epigenetic clocks. *Aging Cell*. 2023;23(3):e14071. doi:10.1111/acel.14071.
+34. Houseman EA, Accomando WP, Koestler DC, et al. DNA methylation arrays as surrogate measures of cell mixture distribution. *BMC Bioinformatics*. 2012;13(1):86. doi:10.1186/1471-2105-13-86.
+35. Reinius LE, Acevedo N, Joerink M, et al. Differential DNA methylation in purified human blood cells: implications for cell lineage and studies on disease susceptibility. *PLoS One*. 2012;7(7):e41361. doi:10.1371/journal.pone.0041361.
+36. Imai K, Ratkovic M. Covariate balancing propensity score. *J R Stat Soc Series B Stat Methodol*. 2014;76(1):243-263. doi:10.1111/rssb.12027.
+37. Greifer N. *WeightIt: Weighting for Covariate Balance in Observational Studies*. R package. https://CRAN.R-project.org/package=WeightIt.
+38. Robins JM, Hernán MA, Brumback B. Marginal structural models and causal inference in epidemiology. *Epidemiology*. 2000;11(5):550-560. doi:10.1097/00001648-200009000-00011.
+39. Arel-Bundock V, Greifer N, Heiss A. How to interpret statistical models using marginaleffects for R and Python. *J Stat Softw*. 2024;111(9):1-32. doi:10.18637/jss.v111.i09.
+40. Aronoff JE, McDade TW, Adair LS, et al. Socioeconomic status is negatively associated with immunosenescence but positively associated with inflammation among middle-aged women in Cebu, Philippines. *Brain Behav Immun*. 2024;115:101-108. doi:10.1016/j.bbi.2023.10.003.
+41. Kuzawa CW, Ryan CP, Adair LS, et al. Birth weight and maternal energy status during pregnancy as predictors of epigenetic age acceleration in young adults from metropolitan Cebu, Philippines. *Epigenetics*. 2022;17(11):1535-1545. doi:10.1080/15592294.2022.2070105.
+42. McDade TW, Ryan CP, Adair LS, et al. Association between infectious exposures in infancy and epigenetic age acceleration in young adulthood in metropolitan Cebu, Philippines. *Am J Hum Biol*. 2023;e23948. doi:10.1002/ajhb.23948.
+43. Ryan CP, Hayes MG, Lee NR, et al. Reproduction predicts shorter telomeres and epigenetic age acceleration among young adult women. *Sci Rep*. 2018;8(1):11100. doi:10.1038/s41598-018-29486-4.
+44. Ryan CP, Lee NR, Carba DB, et al. Pregnancy is linked to faster epigenetic aging in young women. *Proc Natl Acad Sci U S A*. 2024;121(16):e2317290121. doi:10.1073/pnas.2317290121.
+45. Schwartz GL, Glymour MM. Bridging the divide: tackling tensions between life-course epidemiology and causal inference. 2023.
+46. McDade TW, Harris KM. The biosocial approach to human development, behavior, and health across the life course. *RSF*. 2018;4(4):2-26. doi:10.7758/RSF.2018.4.4.01.
+
+# Figure captions
+
+**Figure 1. Associations of epigenetic age in 2005 with continuous ageing outcomes in 2012.** Estimates are standardised differences (SD) in each outcome per one-SD higher epigenetic age, from weighted linear regressions, among `r n_analytic` middle-aged women in the Cebu Longitudinal Health and Nutrition Survey; bars are 95% confidence intervals (standard errors clustered on participant). Models are cumulative: circles are adjusted for chronological age in 2012; semi-transparent triangles are additionally adjusted for genetic ancestry principal component 1 (PC1); semi-transparent squares are additionally adjusted for estimated white blood cell proportions (cell composition). Epigenetic age is age acceleration (clocks residualised on age in 2005; DunedinPACE is not residualised). First-generation clocks are dark purple, second-generation clocks fuchsia, and DunedinPACE orange. CI, confidence interval; HbA1c, glycated haemoglobin; PC, principal component; SD, standard deviation.
+
+Alt text: Forest plot with five panels, one for each epigenetic clock (PCHorvath, PCHannum, PCPhenoAge, PCGrimAge, DunedinPACE), sharing one horizontal axis of standardised differences from negative to positive. Each panel shows six rows: cognition, grip strength, timed get up and go, HbA1c, systolic blood pressure and log C-reactive protein. Each row has three estimates with confidence intervals (age-adjusted, plus genetic PC1, plus cell composition). Higher epigenetic age is associated with lower cognition and slower mobility for all clocks, and with somewhat lower grip strength for most; DunedinPACE shows positive associations with HbA1c, blood pressure and C-reactive protein.
+
+**Figure 2. Associations of epigenetic age in 2005 with binary ageing outcomes in 2012.** Estimates are marginal risk differences (absolute scale; 0.02 = 2 percentage points) per one-SD higher epigenetic age for difficulty with at least one instrumental activity of daily living (IADL) and at least one, two or three self-reported conditions, from g-computation using weighted logistic regression, among `r n_analytic` women; bars are 95% confidence intervals. Models are cumulative and symbols and colours are as in Figure 1 (age in 2012). CI, confidence interval; PC, principal component; SD, standard deviation.
+
+Alt text: Forest plot with five panels, one for each epigenetic clock, sharing one horizontal axis of risk differences centred on zero. Each panel shows four rows: difficulty with at least one IADL, and at least one, two and three conditions, each with three estimates and confidence intervals. Risk differences are largest for PCGrimAge and DunedinPACE for IADL difficulty and for at least three conditions, and close to zero for at least one condition.
+
+**Figure 3. Associations of life-course socioeconomic status with epigenetic age.** Estimates are SD differences in epigenetic age per one-SD higher mother's schooling (early life), own schooling (young adulthood) or household wealth in 2005 (midlife), from weighted linear regressions among `r n_analytic` women; bars are 95% confidence intervals. Models are cumulative and symbols and colours are as in Figure 1, but the age adjustment is age in 2005. CI, confidence interval; PC, principal component; SD, standard deviation.
+
+Alt text: Forest plot with five panels, one for each epigenetic clock, sharing one horizontal axis of standardised differences. Each panel shows three rows: mother's education, own education and household wealth, each with three estimates and confidence intervals. Most estimates are negative for PCHannum, PCPhenoAge and PCGrimAge, indicating lower epigenetic age with higher socioeconomic status, and are weaker for PCHorvath and DunedinPACE (own education is negative for both); estimates move towards zero after adjusting for cell composition.

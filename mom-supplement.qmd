@@ -1,0 +1,181 @@
+---
+title: "Supplementary material: A longitudinal validation of epigenetic clocks among middle-aged Filipino women"
+lang: en-GB
+format:
+  docx:
+    reference-doc: ije-reference.docx
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+# SUPPLEMENTARY MATERIAL
+# S1 clock descriptives | S2-S6 one table per clock | S7 per-unit estimates | S8 weights | S9 included vs excluded | Fig S1
+library(tidyverse)
+library(flextable)
+if (!file.exists("output/analysis.RData")) source("06-models.R")
+load("output/analysis.RData")
+set_flextable_defaults(font.family = "Times New Roman", font.size = 8, padding = 1.5)
+
+pfmt <- function(p) ifelse(p < 0.001, "<0.001", sprintf("%.3f", p))
+ft <- function(df) flextable(df) %>% autofit() %>% fit_to_width(6.3)
+clock_names <- unname(clock_lab[clock_vars])
+ol <- setNames(outcome_spec$label, outcome_spec$outcome)
+xs_lab  <- c(bmi_z = "Body mass index (per SD)", smoke = "Current smoker (vs. not)", drink = "Current alcohol use (vs. not)")
+ses_lab <- c(edu_mom_z = "Mother's schooling (per SD)", edu_own_z = "Own schooling (per SD)", wealth_z = "Household wealth 2005 (per SD)")
+
+# One page per clock: rows = 2012 outcomes, concurrent risk factors → clock, SES → clock;
+# columns = age-adjusted, + genetic PC1, + cell composition (cumulative)
+clock_tab <- function(ck) {
+  z <- paste0("z_", ck)
+  mods <- c(base = "Age", pc1 = "+ Genetic PC1", cellpc1 = "+ Cell composition")
+  grab <- function(lst, rowcol, keep) {
+    imap_dfr(lst, function(r, nm) {
+      r <- if (rowcol == "outcome") r[r$exposure == z, ] else r[r$outcome == z, ]
+      tibble(id = if (rowcol == "outcome") r$outcome else r$exposure, model = nm,
+             cell = fmt_est(r$est, r$lo, r$hi, r$digits), p = r$p)
+    }) %>% filter(id %in% keep)
+  }
+  blocks <- list(
+    list(h = "Outcomes in 2012 (per SD higher clock)", lab = ol[out_rows],
+         d = grab(res_o, "outcome", out_rows)),
+    list(h = "Concurrent risk factors in 2005 → clock", lab = xs_lab,
+         d = grab(list(base = res_xs, pc1 = res_xs_pc1, cellpc1 = res_xs_cellpc1), "exposure", names(xs_lab))),
+    list(h = "Socioeconomic status → clock", lab = ses_lab,
+         d = grab(list(base = res_ses, pc1 = res_ses_pc1, cellpc1 = res_ses_cellpc1), "exposure", names(ses_lab))))
+  rows <- map(blocks, function(b) {
+    w <- b$d %>% select(id, model, cell) %>% pivot_wider(names_from = model, values_from = cell)
+    body <- tibble(id = names(b$lab), Measure = unname(b$lab)) %>%
+      left_join(w, by = "id") %>%
+      transmute(Measure, `Age-adjusted` = base, `+ Genetic PC1` = pc1, `+ Cell composition` = cellpc1)
+    bind_rows(tibble(Measure = b$h, `Age-adjusted` = "", `+ Genetic PC1` = "", `+ Cell composition` = ""), body)
+  })
+  tab <- bind_rows(rows)
+  hdr <- which(tab$`Age-adjusted` == "")
+  flextable(tab) %>% bold(i = hdr) %>% merge_h(i = hdr) %>% autofit() %>% fit_to_width(6.3)
+}
+clock_note <- "Estimates (95% CI) are SD differences (z-scored outcomes and clocks), risk differences (binary outcomes), original units (HbA1c, mmol/mol; systolic blood pressure, mmHg) or percentage difference (C-reactive protein). Models are cumulative; models of 2012 outcomes adjust for age in 2012 and models with a clock as outcome for age in 2005. Weighted; standard errors clustered on participant. BMI, body mass index; CI, confidence interval; HbA1c, glycated haemoglobin; IADL, instrumental activity of daily living; PC, principal component; SD, standard deviation."
+```
+
+# Supplementary methods
+
+**Age acceleration.** PCHorvath, PCHannum, PCPhenoAge and PCGrimAge were each regressed on chronological age in 2005 (age at the DNAm sample) in the analytic sample, and the residual was used as epigenetic age acceleration (standardised for the main analyses; in original units for Supplementary Table S7). DunedinPACE, a pace-of-ageing measure, was not residualised. Models of 2012 outcomes adjust for age in 2012; models with a clock as outcome adjust for age in 2005.
+
+**Outcomes.** Cognition: MMSE-P total score. Grip strength: mean of three trials with the dominant hand (mean of all six trials if ambidextrous), recorded in pounds and converted to kg. Timed Up and Go: mean of three trials (seconds; higher is slower). HbA1c and systolic blood pressure (mmHg): means of repeated measurements; HbA1c is given in mmol/mol, converted from the recorded % as (% − 2.15) × 10.929. C-reactive protein (mg/L): values above 10 set to missing, then log-transformed; estimates in original units are percentage differences, 100×(exp(β)−1). IADL: self-reported difficulty with at least one activity. Multimorbidity: count of self-reported conditions.
+
+**Weights.** Stage 1 models censoring (no complete 2005 DNAm clock data or genetic PC1) among all women in the baseline file, with 1983 household wealth, maternal age, maternal schooling and 1983 urbanicity; stage 2 models censoring (incomplete 2012 outcomes) among women with DNAm data and PC1, with 2005 household wealth, urbanicity, household income, BMI, systolic blood pressure and the five clocks. Both stages used covariate balancing propensity scores (`WeightIt::weightit()` with `.cens()`), and each stage's weight was multiplied by the marginal probability of remaining uncensored (stabilisation). Weights were not trimmed.
+
+**Binary outcomes.** Weighted logistic regression, followed by g-computation (`marginaleffects::avg_comparisons`) of the average risk difference for a one-SD higher exposure over the weighted analytic sample; standard errors clustered on participant.
+
+{{< pagebreak >}}
+
+**Supplementary Table S1. Epigenetic clocks before age residualisation: descriptive statistics and correlation with chronological age**
+
+```{r}
+tibble(Clock = clock_names,
+       `Mean (SD)` = map_chr(clock_vars, ~ sprintf("%.2f (%.2f)", mean(d[[.x]]), sd(d[[.x]]))),
+       `Correlation with age` = map_chr(clock_vars, ~ sprintf("%.2f", cor(d[[.x]], d$age05, use = "complete.obs")))) %>% ft()
+```
+
+{{< pagebreak >}}
+
+**Supplementary Table S2. PCHorvath: associations with 2012 outcomes, concurrent risk factors and socioeconomic status**
+
+```{r}
+clock_tab("pchorvath1")
+```
+
+`r clock_note`
+
+{{< pagebreak >}}
+
+**Supplementary Table S3. PCHannum: associations with 2012 outcomes, concurrent risk factors and socioeconomic status**
+
+```{r}
+clock_tab("pchannum")
+```
+
+`r clock_note`
+
+{{< pagebreak >}}
+
+**Supplementary Table S4. PCPhenoAge: associations with 2012 outcomes, concurrent risk factors and socioeconomic status**
+
+```{r}
+clock_tab("pcphenoage")
+```
+
+`r clock_note`
+
+{{< pagebreak >}}
+
+**Supplementary Table S5. PCGrimAge: associations with 2012 outcomes, concurrent risk factors and socioeconomic status**
+
+```{r}
+clock_tab("pcgrimage")
+```
+
+`r clock_note`
+
+{{< pagebreak >}}
+
+**Supplementary Table S6. DunedinPACE: associations with 2012 outcomes, concurrent risk factors and socioeconomic status**
+
+```{r}
+clock_tab("dunedinpace")
+```
+
+`r clock_note`
+
+{{< pagebreak >}}
+
+**Supplementary Table S7. Estimates per one-year higher epigenetic age acceleration (per 0.1 for DunedinPACE), age-adjusted model**
+
+```{r}
+unit_lab <- c(ra_pchorvath1 = "PCHorvath (per year)", ra_pchannum = "PCHannum (per year)", ra_pcphenoage = "PCPhenoAge (per year)",
+              ra_pcgrimage = "PCGrimAge (per year)", ra_dunedinpace_01 = "DunedinPACE (per 0.1)")
+res_unit %>%
+  mutate(cell = fmt_est(est, lo, hi, 3)) %>%
+  select(exposure, outcome, cell) %>%
+  mutate(Outcome = factor(ol[outcome], levels = unname(ol[c(fig_cont_o, binary_o)])),
+         exposure = factor(unit_lab[exposure], levels = unname(unit_lab))) %>%
+  select(Outcome, exposure, cell) %>% pivot_wider(names_from = exposure, values_from = cell) %>% ft()
+```
+
+Continuous outcomes are z-scored; binary outcomes are risk differences. 95% confidence intervals in parentheses. HbA1c, glycated haemoglobin; IADL, instrumental activity of daily living; PACE, pace of ageing.
+
+**Supplementary Table S8. Distribution of stabilised inverse probability of censoring weights in the analytic sample (not trimmed)**
+
+```{r}
+weight_diag_tbl %>% mutate(across(-n, ~ sprintf("%.2f", .x))) %>%
+  rename(N = n, Mean = mean, SD = sd, Min = min, P1 = p01, P25 = p25, Median = median, P75 = p75, P99 = p99, Max = max, `Effective N` = ESS) %>% ft()
+```
+
+**Supplementary Table S9. Characteristics of women with DNA methylation data and genetic ancestry principal component 1, by inclusion in the analytic sample**
+
+```{r}
+cmp <- mom_analysis_data %>% filter(has_dnam == 1) %>%
+  mutate(Group = if_else(analytic_sample == 1, "Included", "Excluded (incomplete 2012 outcomes)"))
+vars <- c(age05 = "Age 2005, years", mbmi05 = "BMI 2005, kg/m²", sbp05 = "Systolic blood pressure 2005, mmHg",
+          wealth_pc_2005 = "Wealth index 2005", pchorvath1 = "PCHorvath", pchannum = "PCHannum",
+          pcphenoage = "PCPhenoAge", pcgrimage = "PCGrimAge", dunedinpace = "DunedinPACE")
+map_dfr(names(vars), function(v) {
+  cmp %>% group_by(Group) %>% summarise(m = sprintf("%.2f (%.2f)", mean(.data[[v]], na.rm = TRUE), sd(.data[[v]], na.rm = TRUE)), .groups = "drop") %>%
+    pivot_wider(names_from = Group, values_from = m) %>% mutate(Characteristic = vars[[v]], .before = 1)
+}) %>% select(Characteristic, Included, everything()) %>% ft()
+```
+
+Mean (standard deviation), unweighted. BMI, body mass index; DNAm, DNA methylation; PC1, genetic ancestry principal component 1; PACE, pace of ageing.
+
+{{< pagebreak >}}
+
+**Supplementary Figure S1. Correlations between epigenetic age-acceleration measures (age-scale clocks residualised on chronological age; DunedinPACE not residualised)**
+
+```{r}
+#| fig-width: 6
+#| fig-height: 5
+supp_fig1
+```
